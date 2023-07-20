@@ -83,16 +83,27 @@ WSGI_APPLICATION = 'aichemy.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         # 데이터베이스 이름
+#         'NAME': 'user',
+#         'USER' : "jh",
+#         # root 비밀번호
+#         'PASSWORD' : "jh3548",
+#         'HOST' : '127.0.0.1',
+#         'PORT': '3306'
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        # 데이터베이스 이름
-        'NAME': config('DATABASE_NAME'),
-        'USER' : 'root',
-        # root 비밀번호
-        'PASSWORD' : config('DATABASE_PASSWORD'),
-        'HOST' : 'localhost',
-        'PORT': ''
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'user',
+        'USER': 'jh',
+        'PASSWORD': 'jh3548',
+        'HOST': 'postgresql',
+        'PORT': '5432',
     }
 }
 
