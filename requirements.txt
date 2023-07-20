@@ -1,0 +1,6 @@
+mysqlclient
+python-decouple
+django
+djangorestframework
+django-cors-headers
+psycopg2>=2.8
