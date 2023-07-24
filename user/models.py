@@ -22,7 +22,7 @@ class UserManager(BaseUserManager):
     def create_user(self, username, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', False)
         extra_fields.setdefault('is_superuser', False)
-        return self._create_user(email, password, **extra_fields)
+        return self._create_user(username, email, password, **extra_fields)
     def create_superuser(self, username, email, password, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
@@ -40,7 +40,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     #최소 8 자, 최소 하나의 문자, 하나의 숫자 및 하나의 특수 문자 
     password = models.CharField(max_length=100, validators=[MinLengthValidator(8), RegexValidator('^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,}$')])
     email = models.EmailField(unique=True)
-    #created_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(default=timezone.now)
     last_accessed_at = models.DateTimeField(default=timezone.now)
     generate_count = models.IntegerField(default=0)

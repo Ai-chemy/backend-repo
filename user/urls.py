@@ -2,5 +2,6 @@ from django.urls import path, include
 
 from . import views
 urlpatterns = [
-    path('', views.sendEmail, name = 'sendEmail')
+    path('email/', views.sendEmail, name = 'sendEmail'),
+    path('signup/', views.signUp, name = 'signUp')
 ]

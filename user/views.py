@@ -5,6 +5,8 @@ from .models import User
 from django.core.mail import EmailMessage
 from decouple import config
 from django.http import HttpResponse
+from .models import UserManager
+from django.contrib.auth.base_user import BaseUserManager
 # Create your views here.
 
 class UserView(viewsets.ModelViewSet):
@@ -19,3 +21,7 @@ def sendEmail(request):
     )
     email.send()
     return HttpResponse('We Have Sent Our Email')
+
+def signUp(request):
+    User.objects.create_user("SignUpTest", "singup@gmail.com", "signupTEST!@12")
+    return HttpResponse("this is sign up page")
