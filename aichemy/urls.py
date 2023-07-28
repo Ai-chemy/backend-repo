@@ -19,7 +19,9 @@ from django.urls import path, include
 from rest_framework import routers
 from user import views
 from rest_framework_simplejwt.views import( TokenObtainPairView, TokenRefreshView)
-
+from user.form import CustomSetPasswordForm
+import django.contrib.auth.views as authViews
+import django.contrib.auth.urls as authUrls
 """
     " @todo : router에 대하여 알아보기
 """
@@ -33,4 +35,8 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'), 
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('test/', include('user.urls')),
+    path('password/reset/<uidb64>/<token>/', 
+         authViews.PasswordResetConfirmView.as_view(form_class = CustomSetPasswordForm), 
+         name="password_reset_confirm",),
+    path('password/', include(authUrls)),
 ]
