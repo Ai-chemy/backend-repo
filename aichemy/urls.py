@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
 from user import views
-from rest_framework_simplejwt.views import( TokenObtainPairView, TokenRefreshView)
+from rest_framework_simplejwt.views import( TokenObtainPairView, TokenRefreshView, TokenVerifyView)
 from user.form import CustomSetPasswordForm
 import django.contrib.auth.views as authViews
 import django.contrib.auth.urls as authUrls
@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'), 
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('test/', include('user.urls')),
     path('password/reset/<uidb64>/<token>/', 
          authViews.PasswordResetConfirmView.as_view(form_class = CustomSetPasswordForm), 
