@@ -14,4 +14,7 @@ urlpatterns = [
     path("email/", views.email, name="asdasd"),
     # 테스트용
     path("test/", views.test, name="asdasd"),
+    # 이미지 GET
+    path("getimg/", views.getImg, name='getImg'),
+    
 ]

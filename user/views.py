@@ -1,5 +1,5 @@
 from user.models import User
-from .models import User
+from .models import User, Image
 from django.core.mail import EmailMessage
 from decouple import config
 from django.http import JsonResponse
@@ -81,6 +81,27 @@ def signup(request):
         user.save()
 
     return JsonResponse({"message":"USER_CREATED"}, status=200)
+
+@api_view(["POST"])
+def getImg(request):
+    """
+        유저 이미지 가져오기
+
+        @see
+    """
+
+    JWT_authenticator = JWTAuthentication()
+    response = JWT_authenticator.authenticate(request)
+    #Authorization의 Bearer제거
+    userid = response[1].get('user_id')
+    #유저ID 를 FK로 이미지 객체들을 가져옴
+    userimg = Image.objects.filter(user_id_id=userid).values("address", "id")
+    imginfo = []
+    for image in userimg:
+        info = {}
+        info[image['id']] = image['address']
+        imginfo.append(info)
+    return JsonResponse({"address":imginfo}, status=200)
 
 # --------------------------------------------------------------------------
 
