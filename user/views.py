@@ -1,64 +1,100 @@
 from user.models import User
-from rest_framework import viewsets
-from .serializers import UserSerializer
 from .models import User
 from django.core.mail import EmailMessage
 from decouple import config
-from django.http import HttpResponse, JsonResponse
-import json
-from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
-# Create your views here.
+from rest_framework.decorators import api_view
+from django.utils import timezone
+import uuid
+import hashlib
 
-class UserView(viewsets.ModelViewSet):
-    serializer_class = UserSerializer
-    queryset = User.objects.all()
+@api_view(["POST"])
+def email(request):
+    """
+        비밀번호 리셋 이메일 발송
 
+        추가설명  
+    """
+    email = request.data.get("email")
+    user = None
 
-class onlyAuthenticate():
-    @csrf_exempt
-    #@api view get
-    #@permission_class(isauthenticated)
-    def sendEmail(request):
-        if request.method == "POST":
-            JWT_authenticator = JWTAuthentication()
-            response = JWT_authenticator.authenticate(request)
-            if response is not None:
-                mail_data = json.loads(request.body)
-                try:
-                    mail_title = mail_data['title']
-                    mail_content = mail_data['content']
-                    mail_receiver = mail_data['receiver']
-                    email = EmailMessage(
-                        mail_title, #이메일 제목
-                        mail_content, #내용
-                        to=[mail_receiver], #받는 이메일
-                    )
-                    email.send()
-                    return HttpResponse('We Have Sent Our Email')
-                except KeyError:
-                    return JsonResponse({"message": "KeyError"}, status=400)
-            else:
-                    return HttpResponse("no token is provided in the header or the header is missing")
-        else:
-             return JsonResponse({"message": "METHOD ERROR"}, status=400)
+    try: 
+        user = User.objects.get(email=email)
+    except Exception as e:
+        print(e)
 
-    @csrf_exempt
-    def signUp(request):
-        if request.method == "POST":
-            JWT_authenticator = JWTAuthentication()
-            response = JWT_authenticator.authenticate(request)
-            if response is not None:
-                signup_data = json.loads(request.body)
-                try:
-                    username = signup_data['username']
-                    email = signup_data['email']
-                    password = signup_data['password']
-                    User.objects.create_user(username, email, password)
-                    return HttpResponse("you have signed up as Username : " + username)
-                except KeyError:
-                        return JsonResponse({"message": "KeyError"}, status=400)
-            else:
-                return HttpResponse("no token is provided in the header or the header is missing")
-        else:
-             return JsonResponse({"message": "METHOD ERROR"}, status=400)
+    if (user):
+        token = str(uuid.uuid4())
+        token_hashed = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        expire = timezone.now()
+        # + datetime.timedelta(minutes=30)
+
+        try:
+            user.password_reset_token = token_hashed
+            user.password_reset_token_expiration = expire
+            user.save(update_fields=["password_reset_token", "password_reset_token_expiration"])
+        except Exception as e:
+            print(e)
+
+        try:
+            email_instance = EmailMessage(
+                subject="[AI-CHEMY] Password Reset Email", 
+                body=token,
+                to=[user.email]
+            )
+            email_instance.send()
+        except Exception as e:
+            print(e)
+
+    return JsonResponse({"a":"b"}, status=200)
+
+@api_view(["POST"])
+def signup(request):
+    """
+        회원가입
+        
+        username, password, email을 body로 부터 가져와서 Validation후 DB에 저장
+    """
+    username = request.data.get("username")
+    password = request.data.get("password")
+    email = request.data.get("email")
+
+    user = User(username=username, password=password, email=email)
+
+    try:
+        # full_clean() 메소드는 
+        # Model.clean_fields(), Model,clean(), Model.validate_unique() 3개의 메소드를 연달아 호출하는데
+        # clean_fields(): 모델에 정의한 field들을 검증하며, 통과하지 못하면 ValidationError를 발생시킴
+        # clean(): clean() 메소드 안에 정의한 사용자 정의 Validation을 검증
+        # validate_unique(): unique를 설정해놓은 필드들을 검증 
+        user.full_clean()
+        user.set_password(password)
+    except Exception as e:
+        data = {
+            "message" : "USER_CREATION_FAILED", 
+            "status" : e.message_dict
+        }
+
+        return JsonResponse(data, status=409)
+    else:
+        user.save()
+
+    return JsonResponse({"message":"USER_CREATED"}, status=200)
+
+# --------------------------------------------------------------------------
+
+@api_view(["POST"])
+def test(request):
+    print(request.headers)
+    JWT_authenticator = JWTAuthentication()
+    response = JWT_authenticator.authenticate(request)
+
+    print(response)
+    print(str(response))
+
+    return JsonResponse({}, status=200)
+
+@api_view(["POST"])
+def password(request):
+    pass
