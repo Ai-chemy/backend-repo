@@ -6,6 +6,9 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.decorators import api_view
 from django.utils import timezone
+from kafka import KafkaProducer
+from json import dumps
+import datetime
 import uuid
 import hashlib
 
@@ -14,94 +17,242 @@ def email(request):
     """
         비밀번호 리셋 이메일 발송
 
-        추가설명  
+        @method     POST
+        @header     
+        @form-data  email
+        @return     {"result": ""}
     """
+    # 001. 이메일을 Body에서 가져옴
     email = request.data.get("email")
-    user = None
 
     try: 
+        # 002. 이메일로 유저 객체를 가져옴
         user = User.objects.get(email=email)
-    except Exception as e:
-        print(e)
+    except:
+        # 003. 이메일이 일치하는 Data가 없을 경우 404(Not Found) 리턴
+        return JsonResponse({"result": config("USER_NONE")}, status=404)
 
-    if (user):
-        token = str(uuid.uuid4())
-        token_hashed = hashlib.sha256(token.encode("utf-8")).hexdigest()
-        expire = timezone.now()
-        # + datetime.timedelta(minutes=30)
+    # 004. 토큰 생성. uuid4()는 32자리 랜덤 문자열을 생성해줌
+    token = str(uuid.uuid4())
+    # 005. 토큰을 암호화
+    token_hashed = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    # 006. 토큰의 만료일 설정 (30분)
+    expire = timezone.now() + datetime.timedelta(minutes=30)
 
+    # 007. 유저 객체의 토큰 필드 설정
+    user.password_reset_token = token_hashed
+    # 008. 유저 객체의 토큰 만료일 필드 설정
+    user.password_reset_token_expiration = expire
+    # 009. 유저 객체 Update
+    user.save(update_fields=["password_reset_token", "password_reset_token_expiration"])
+
+    try:
+        # 010. 이메일 객체 생성
+        email_instance = EmailMessage(
+            # 011. 이메일 제목
+            subject="[AI-CHEMY] Password Reset Email", 
+            # 012. 이메일 내용
+            body=token,
+            # 013. 이메일 전송 대상(배열이므로 전송 대상 다수 설정 가능)
+            to=[user.email]
+        )
+        # 014. 이메일 전송
+        email_instance.send()
+    except:
+        # 015. 이메일 전송 실패 시 408(Request Timeout) 리턴
+        return JsonResponse({"result": config("EMAIL_FAIL")}, status=408)
+    
+    # 016. 이메일 전송 성공 시 200 리턴
+    return JsonResponse({"result": config("EMAIL_SENT")}, status=200)
+
+@api_view(["POST"])
+def passwordReset(request):
+    """
+        비밀번호 리셋
+
+        @method         POST
+        @header     
+        @form-data      email, uuid, password
+        @return         {"result": ""}
+    """
+
+    # 001. 이메일, 토큰, 비밀번호를 BODY에서 가져옴
+    email = request.data.get("email")
+    token = request.data.get("uuid")
+    password = request.data.get("password")
+
+    # 002. 토큰이 없으면 400(Bad Request) 리턴
+    if (token == None or token == ""):
+        return JsonResponse({"result": config("TOKEN_NONE")}, status=400)
+    
+    # 003. Body에서 가져온 토큰을 암호화
+    token_hashed = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    try:
+        # 004. 이메일이 일치하는 데이터를 가져옴
+        user = User.objects.get(email=email)
+    except:
+        # 005. 일치하는 데이터가 없으면 404(Not Found)
+        return JsonResponse({"result": config("USER_NONE")}, status=404)
+    
+    # 006. 비밀번호 리셋을 요청한 적이 있는지 확인
+    if (
+        user.password_reset_token == None or 
+        user.password_reset_token == "" or 
+        user.password_reset_token_expiration == None or
+        user.password_reset_token_expiration == ""
+    ):
+        # 007. 없으면 400(Bad Request) 리턴
+        return JsonResponse({"result": config("PASSWORD_TOKEN_NONE")}, status=400)
+
+    # 007. 입력한 토큰과 DB의 비밀번호 리셋 토큰이 일치하는지, 만료일이 지나지 않았는지 확인
+    if (
+        user.password_reset_token == token_hashed and
+        user.password_reset_token_expiration > timezone.now()
+    ):
         try:
-            user.password_reset_token = token_hashed
-            user.password_reset_token_expiration = expire
-            user.save(update_fields=["password_reset_token", "password_reset_token_expiration"])
-        except Exception as e:
-            print(e)
+            # 008. 유저 필드 설정하고 Validation 진행
+            user.password = password
+            user.password_reset_token = None
+            user.password_reset_token_expiration = None
+            user.full_clean()
+        except:
+            # 009. Validation 실패 시 409(Conflict) 리턴
+            return JsonResponse({"result": config("PASSWORD_VALIDATION_FAIL")}, status=409)
+        
+        # 010. 비밀번호를 암호화하고 유저 객체 Update
+        user.set_password(password)
+        user.save(update_fields=["password", "password_reset_token", "password_reset_token_expiration"])
 
-        try:
-            email_instance = EmailMessage(
-                subject="[AI-CHEMY] Password Reset Email", 
-                body=token,
-                to=[user.email]
-            )
-            email_instance.send()
-        except Exception as e:
-            print(e)
-
-    return JsonResponse({"a":"b"}, status=200)
+        return JsonResponse({"result": config("PASSWORD_CHANGED")}, status=200)
+    else:
+        # 011. 입력한 토큰이 일치하지 않거나, 토큰이 만료되었으면 401(Unauthorized) 리턴 
+        return JsonResponse({"result": config("TOKEN_NOT_MATCH")}, status=401)
 
 @api_view(["POST"])
 def signup(request):
     """
         회원가입
         
-        username, password, email을 body로 부터 가져와서 Validation후 DB에 저장
+        @method         POST
+        @header
+        @form-data      username, password, email
+        @return         {"result": ""}
     """
+    # 001. username, password, email을 Body에서 가져옴
     username = request.data.get("username")
     password = request.data.get("password")
     email = request.data.get("email")
 
+    # 002. 유저 객체 생성
     user = User(username=username, password=password, email=email)
 
     try:
-        # full_clean() 메소드는 
-        # Model.clean_fields(), Model,clean(), Model.validate_unique() 3개의 메소드를 연달아 호출하는데
-        # clean_fields(): 모델에 정의한 field들을 검증하며, 통과하지 못하면 ValidationError를 발생시킴
-        # clean(): clean() 메소드 안에 정의한 사용자 정의 Validation을 검증
-        # validate_unique(): unique를 설정해놓은 필드들을 검증 
+        # 003. 유저 필드 Validation 후 비밀번호 암호화
         user.full_clean()
         user.set_password(password)
-    except Exception as e:
-        data = {
-            "message" : "USER_CREATION_FAILED", 
-            "status" : e.message_dict
-        }
-
-        return JsonResponse(data, status=409)
-    else:
-        user.save()
-
-    return JsonResponse({"message":"USER_CREATED"}, status=200)
+    except:
+        # 004. Validation 실패 시 409(Conflict) 리턴
+        return JsonResponse({"result": config("FIELD_VALIDATION_FAIL")}, status=409)
+    
+    # 005. Validation 성공 시 저장하고 200 리턴 
+    user.save()
+    return JsonResponse({"message": config("USER_CREATED")}, status=200)
 
 @api_view(["POST"])
 def getImg(request):
     """
         유저 이미지 가져오기
 
-        @see
+        @method     POST
+        @header     "Authorization": "Bearer " + 토큰값
+        @form-data
+        @return     {
+                        "address": [
+                            {
+                                "1": "www.naver.com/abcd.png"
+                            },
+                            {
+                                "2": "www.naver.com/efg.png"
+                            }, ...
+                        ]
+                    }
     """
+    # 001. header에서 토큰 값 가져와서 디코드
+    JWT_authenticator = JWTAuthentication()
+    # 002. 튜플 형태로 반환. response[0]은 <class 'user.models.User'>
+    #       response[1]은 <class 'rest_framework_simplejwt.tokens.AccessToken'>
+    response = JWT_authenticator.authenticate(request)
 
+    # 003. 토큰 Payload에서 user_id 가져옴
+    userid = response[1].get('user_id')
+
+    # 004. 유저ID(FK)로 이미지들을 쿼리셋 형태로 가져옴
+    userimg = Image.objects.filter(user_id_id=userid)
+
+    result = {"address": []}
+
+    # 005. 쿼리셋에서 객체를 하나씩 가져온 후 결과값에 추가
+    for imgObj in userimg:
+        result["address"].append({imgObj.id: imgObj.address})
+
+    # 006. 결과값 리턴
+    return JsonResponse(result, status=200)
+
+@api_view(["POST"])
+def generateImage(request):
+    """
+        이미지 생성
+
+        @method     POST
+        @header     "authorization": "Bearer " + 토큰값
+        @form-data  prompt
+        @return     {"result": ""}
+    """
+    # 001. prompt를 Body에서 가져온 후 Validation
+    prompt = request.data.get("prompt")
+    if (prompt == None or prompt == ""):
+        return JsonResponse({"result": config("PROMPT_NULL")}, status=400)
+
+    # 002. JWT 토큰을 통해 유저 ID를 가져옴
     JWT_authenticator = JWTAuthentication()
     response = JWT_authenticator.authenticate(request)
-    #Authorization의 Bearer제거
-    userid = response[1].get('user_id')
-    #유저ID 를 FK로 이미지 객체들을 가져옴
-    userimg = Image.objects.filter(user_id_id=userid).values("address", "id")
-    imginfo = []
-    for image in userimg:
-        info = {}
-        info[image['id']] = image['address']
-        imginfo.append(info)
-    return JsonResponse({"address":imginfo}, status=200)
+    userId = response[1].get("user_id")
+
+    # 003. 유저ID로 유저 객체 가져옴
+    user = User.objects.get(id=userId)
+    
+    # 004. Kafka 프로듀서 생성, 실패 시 408(Request Timeout) 리턴
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=['localhost:9092'],
+            value_serializer=lambda x: dumps(x).encode('utf-8')
+        )
+    except:
+        return JsonResponse({"result": config("KAFKA_FAIL")}, status=408)
+
+    
+
+    # 005. DB에 address 필드가 null인 객체 생성
+    image_instance = Image(user_id=user)
+    image_instance.save()
+
+    # 006. 카프카를 통해 보낼 JSON
+    data = {
+        "SECRET_KEY": config("FLASK_SECRET_KEY"),
+        "username": user.username,
+        "userid": user.id,
+        "prompt": prompt,
+        "imageid": image_instance.id
+    }
+
+    # 007. 카프카를 통해 데이터 전송, 첫번째 인자: TOPIC_NAME
+    producer.send("image", value=data)
+
+    return JsonResponse({
+        "result": config("IMAGE_PROCESSING"),
+        "image_id": image_instance.id
+    }, status=200)
 
 # --------------------------------------------------------------------------
 
@@ -119,3 +270,4 @@ def test(request):
 @api_view(["POST"])
 def password(request):
     pass
+

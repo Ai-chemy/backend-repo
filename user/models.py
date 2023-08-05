@@ -40,8 +40,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     created_at = models.DateTimeField(default=timezone.now)
     generate_count = models.IntegerField(default=0)
-    password_reset_token = models.CharField(max_length=150, null=True, default=None)
-    password_reset_token_expiration = models.DateTimeField(null=True, default=None)
+    password_reset_token = models.CharField(max_length=150, null=True, blank=True, default=None)
+    password_reset_token_expiration = models.DateTimeField(null=True, blank=True, default=None)
 
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -57,7 +57,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 class Image(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
     id = models.AutoField(primary_key=True)
-    address = models.URLField()
+    address = models.URLField(null=True)
+    is_deleted = models.BooleanField(default=False)
     
     def __str__(self):
         return self.address
