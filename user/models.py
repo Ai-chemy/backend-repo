@@ -58,6 +58,7 @@ class Image(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
     id = models.AutoField(primary_key=True)
     address = models.URLField()
+    is_deleted = models.BooleanField(default=False)
     
     def __str__(self):
         return self.address

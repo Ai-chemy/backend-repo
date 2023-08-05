@@ -14,7 +14,12 @@ urlpatterns = [
     path("email/", views.email, name="asdasd"),
     # 테스트용
     path("test/", views.test, name="asdasd"),
-    # 이미지 GET
+    # 이미지 주소 GET
     path("getimg/", views.getImg, name='getImg'),
-    
+    # 이미지 DELETE
+    path("deleteimg/", views.deleteImg, name='deleteImg'),
+    # 회원탈퇴
+    path("signout/", views.singOut, name='signOut'),
+    # 아이디중복확인
+    path("checkduplication/", views.checkIdDuplication, name='checkIdDuplication')
 ]
