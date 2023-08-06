@@ -15,11 +15,13 @@ urlpatterns = [
     # 테스트용
     path("test/", views.test, name="asdasd"),
     # 이미지 주소 GET
-    path("getimg/", views.getImg, name='getImg'),
+    path("getimgaddress/", views.getImgAddress, name='getImgAddress'),
     # 이미지 DELETE
     path("deleteimg/", views.deleteImg, name='deleteImg'),
     # 회원탈퇴
     path("signout/", views.singOut, name='signOut'),
     # 아이디중복확인
-    path("checkduplication/", views.checkIdDuplication, name='checkIdDuplication')
+    path("checkduplication/", views.checkIdDuplication, name='checkIdDuplication'),
+    # 이미지 데이터 GET
+    path("getimgdata/", views.getImgData, name='getImgData')
 ]

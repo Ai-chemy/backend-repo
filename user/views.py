@@ -8,7 +8,8 @@ from rest_framework.decorators import api_view
 from django.utils import timezone
 import uuid
 import hashlib
-import urllib.request
+from django.http import HttpResponse
+import requests
 
 @api_view(["POST"])
 def email(request):
@@ -83,21 +84,16 @@ def signup(request):
 
     return JsonResponse({"message":"USER_CREATED"}, status=200)
 
-import os
-from django.http import HttpResponse, FileResponse
-from PIL import Image as ImageFile
 @api_view(["POST"])
-def getImg(request):
-    """
-        유저 이미지 가져오기
-    """
+def getImgAddress(request):
+    # """
+    #     유저 이미지 가져오기
+    #     @breif 토큰에서 유저아이디 가져와서 해당 유저가 생성한 이미지 주소들 반환
+    # """
 
     JWT_authenticator = JWTAuthentication()
     response = JWT_authenticator.authenticate(request)
-    #이미지 주소 가져올때 헤더 설정
-    opener = urllib.request.build_opener()
-    opener.addheaders = [('Authorization', 'brandi.token')]
-    urllib.request.install_opener(opener)
+    
     #유저아이디
     userid = response[1].get('user_id')
     #유저ID 를 FK로 이미지 객체들을 가져옴
@@ -107,27 +103,8 @@ def getImg(request):
         info = {}
         info[image['id']] = image['address']
         imginfo.append(info)
-
-        #이미지 주소에서 이미지 가져온다음 이미지 파일 반환
-        url = image['address']
-        imgId = str(image['id'])
-        userFileId = str(userid)
-        dirPath = os.path.join(os.path.dirname(os.path.relpath(__file__)), "media\\" + "id_" +userFileId)
-        imagePath = dirPath + "\\image_" +imgId+".jpg"
-        #디렉토리 없으면 생성
-        if not os.path.exists(dirPath):
-            os.makedirs(dirPath)
-
-        #이미지 파일 생성
-        urllib.request.urlretrieve(url, imagePath)
-        with open(imagePath, "rb") as f:
-            return HttpResponse(f.read(), content_type="image/png")
-        # a = ImageFile.open(imagePath)
-        # a.save(res, 'png')
-        # return res
-        #return FileResponse(a)
     
-    #return JsonResponse({"address":imginfo}, status=200)
+    return JsonResponse({"address":imginfo}, status=200)
 
 @api_view(["POST"])
 def deleteImg(request):
@@ -191,6 +168,25 @@ def checkIdDuplication(request):
     #중복된 ID일 경우 reponse : 0
     return JsonResponse({"response":0, "message":"this username already exist"}, status=200)
 
+@api_view(["POST"])
+def getImgData(request):
+    """
+        이미지 데이터 넘겨주기
+
+        @brief url키에 있는 이미지의 데이터를 Bytes로 리턴
+    """
+
+    JWT_authenticator = JWTAuthentication()
+    response = JWT_authenticator.authenticate(request)
+    data = {
+            "Content-Type": "application/json",
+            "Authorization": "brandi.token"
+    }
+
+    requestUrl = request.data.get("url")
+
+    imgData = requests.get(url=requestUrl, headers=data)
+    return HttpResponse(imgData.content)
 
 
 
