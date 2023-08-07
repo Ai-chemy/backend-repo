@@ -11,6 +11,8 @@ from json import dumps
 import datetime
 import uuid
 import hashlib
+from django.http import HttpResponse
+import requests
 
 @api_view(["POST"])
 def email(request):
@@ -160,7 +162,7 @@ def signup(request):
     return JsonResponse({"message": config("USER_CREATED")}, status=200)
 
 @api_view(["POST"])
-def getImg(request):
+def getImgAddress(request):
     """
         유저 이미지 가져오기
 
@@ -188,7 +190,7 @@ def getImg(request):
     userid = response[1].get('user_id')
 
     # 004. 유저ID(FK)로 이미지들을 쿼리셋 형태로 가져옴
-    userimg = Image.objects.filter(user_id_id=userid)
+    userimg = Image.objects.filter(user_id_id=userid, is_deleted=False).values("address", "id")
 
     result = {"address": []}
 
@@ -253,6 +255,90 @@ def generateImage(request):
         "result": config("IMAGE_PROCESSING"),
         "image_id": image_instance.id
     }, status=200)
+
+@api_view(["POST"])
+def deleteImg(request):
+    """
+        이미지 삭제
+        @brief "image_id"키로 삭제할 이미지 ID 전달하면 해당 이미지 is_deleted = True
+    """
+
+    JWT_authenticator = JWTAuthentication()
+    response = JWT_authenticator.authenticate(request)
+    imgid = request.data.get("image_id")
+
+    #수행완료 response 1, 실패 response 0
+    try:
+        userimg = Image.objects.get(id=imgid)
+    except Image.DoesNotExist:
+        return JsonResponse({"response":0, "message":"Image does not exist"}, status=200)
+    
+    userimg.is_deleted = True
+    userimg.save(update_fields=['is_deleted'])
+    return JsonResponse({"response":1, "message":"delete image successfully"}, status=200)
+
+@api_view(["POST"])
+def singOut(request):
+    """
+        회원탈퇴
+
+        @brief "user_id"키로 회원탈퇴 할 유저 ID 전달하면 해당 유저 is_active = False
+    """
+
+    JWT_authenticator = JWTAuthentication()
+    response = JWT_authenticator.authenticate(request)
+    userid = request.data.get("user_id")
+
+    #수행완료 response 1, 실패 response 0
+    try:
+        user = User.objects.get(id=userid)
+    except User.DoesNotExist:
+        return JsonResponse({"response":0, "message":"User does not exist"}, status=200)
+    
+    user.is_active = False
+    user.save(update_fields=['is_active'])
+    return JsonResponse({"response":1, "message":"sign out successfully"}, status=200)
+
+@api_view(["POST"])
+def checkIdDuplication(request):
+    """
+        아이디 중복확인
+
+        @brief "username"키로 데이터베이스에서 중복된 이름이 있는지 확인 후 결과 리턴
+    """
+    
+    username = request.data.get("username")
+
+    #중복안됨 response 1, 중복 response 0
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+       #중복된 ID가 아닐경우 reponse : 1
+       return JsonResponse({"response":1, "message":"you can use this username"}, status=200)
+    #중복된 ID일 경우 reponse : 0
+    return JsonResponse({"response":0, "message":"this username already exist"}, status=200)
+
+@api_view(["POST"])
+def getImgData(request):
+    """
+        이미지 데이터 넘겨주기
+
+        @brief url키에 있는 이미지의 데이터를 Bytes로 리턴
+    """
+
+    JWT_authenticator = JWTAuthentication()
+    response = JWT_authenticator.authenticate(request)
+    data = {
+            "Content-Type": "application/json",
+            "Authorization": "brandi.token"
+    }
+
+    requestUrl = request.data.get("url")
+
+    imgData = requests.get(url=requestUrl, headers=data)
+    return HttpResponse(imgData.content)
+
+
 
 # --------------------------------------------------------------------------
 
