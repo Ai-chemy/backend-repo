@@ -28,6 +28,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Application definition
 
@@ -52,6 +53,14 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
 #JWT 설정
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
@@ -135,17 +144,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'aichemy.wsgi.application'
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config("DATABASE_NAME"),
-        'USER': config("DATABASE_USER"),
-        'PASSWORD': config("DATABASE_USER_PASSWORD"),
-        'HOST': config("DATABASE_HOST"),
-        'PORT': config("DATABASE_PORT"),
-    }
-}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

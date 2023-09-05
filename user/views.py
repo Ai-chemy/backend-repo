@@ -190,7 +190,7 @@ def getImgAddress(request):
     userid = response[1].get('user_id')
 
     # 004. 유저ID(FK)로 이미지들을 쿼리셋 형태로 가져옴
-    userimg = Image.objects.filter(user_id_id=userid, is_deleted=False).values("address", "id")
+    userimg = Image.objects.filter(user_id_id=userid, is_deleted=False)
 
     result = {"address": []}
 
